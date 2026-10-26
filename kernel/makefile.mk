@@ -88,7 +88,7 @@ endif
 KERNEL_CFLAGS += -DSCHED_$(SCHED)
 # Recompile proc.c whenever SCHED changes
 .sched: FORCE
-@echo $(SCHED) | cmp -s - $@ || echo $(SCHED) > $@
+	@echo $(SCHED) | cmp -s - $@ || echo $(SCHED) > $@
 kernel/proc.o: .sched
 FORCE:
 ##################################################################################

@@ -25,6 +25,7 @@ CC = gcc
 CFLAGS += -Wall
 # treat warnings as errors
 CFLAGS += -Werror
+CFLAGS += -Wno-error=infinite-recursion
 
 # produce debugging information for use by gdb
 CFLAGS += -ggdb
