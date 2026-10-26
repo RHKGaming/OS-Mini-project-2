@@ -28,4 +28,5 @@
 #define SYS_ThirdPart 24
 #define SYS_myps 25
 #define SYS_getpinfo 26
+#define SYS_settickets 27
 #endif // _SYSCALL_H_

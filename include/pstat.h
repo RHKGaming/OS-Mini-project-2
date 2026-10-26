@@ -7,5 +7,8 @@ struct pstat {
  int pid[NPROC]; // PID of each process
  int ticks[NPROC]; // number of times each process has been scheduled
  int size[NPROC]; // size of each process's memory, in bytes
+ int tickets[NPROC];
+ int stride[NPROC];
+ int pass[NPROC];
 };
 #endif // _PSTAT_H_
