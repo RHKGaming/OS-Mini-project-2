@@ -17,17 +17,6 @@
 #endif
 /*#############################*/
 
-// Phase 4.1
-static uint rseed = 2463534242; // any nonzero starting value
-static uint
-rand(void)
-{
-  rseed ^= rseed << 13;
-  rseed ^= rseed >> 17;
-  rseed ^= rseed << 5;
-  return rseed;
-}
-
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -63,7 +52,7 @@ allocproc(void)
       goto found;
   release(&ptable.lock);
   return 0;
-	
+
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
@@ -289,50 +278,12 @@ void
 scheduler(void)
 {
   struct proc *p;
-int total, winner, counter;
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
-    #if defined(SCHED_LOTTERY)
-    acquire(&ptable.lock);
-/*####### Phase 3.2 #######*/
-// TODO 4.1: Calculate the total tickets of all RUNNABLE processes
-    total = 0;
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state == RUNNABLE){
-        total += p->tickets;
-      }
-    }
-
-    // TODO 4.2: Hold the raffle if there are runnable processes
-    if(total > 0){
-      winner = rand() % total; // Draw a winning number from 0 to total-1
-      counter = 0;
-
-      // Walk the ptable to find the winning process
-      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-        if(p->state != RUNNABLE)
-          continue;
-
-        counter += p->tickets;
-        if(counter > winner){
-          // Found the winner! Run this process using standard Lab 2 lines
-          proc = p;
-          switchuvm(p);
-          p->state = RUNNING;
-          p->numTicks += 1;
-          
-          swtch(&cpu->scheduler, proc->context);
-          switchkvm();
-          
-          proc = 0;
-          break; // Break out of the allocation loop after the slice ends
-        }
-      }
-    }
-    release(&ptable.lock);
-#elif defined(SCHED_RR)
+    #if defined(SCHED_RR)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
@@ -357,8 +308,10 @@ int total, winner, counter;
       proc = 0;
     }
     release(&ptable.lock);
-#elif defined(SCHED_STRIDE)
-    // Phase 5 goes here
+
+    #elif defined(SCHED_LOTTERY)
+
+    #elif defined(SCHED_STRIDE)
 
     #endif
 
