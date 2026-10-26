@@ -57,6 +57,11 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   p->numTicks = 0;
+
+  p->tickets = DEFAULT_TICKETS;
+  p->stride = STRIDE_BIG / p->tickets;
+  p->pass = 0;
+
   release(&ptable.lock);
 
   // Allocate kernel stack if possible.
@@ -89,6 +94,8 @@ userinit(void)
 {
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
+
+  cprintf("Scheduler: %s\n", SCHED_NAME);
   
   p = allocproc();
   acquire(&ptable.lock);
@@ -111,10 +118,6 @@ userinit(void)
 
   p->state = RUNNABLE;
   release(&ptable.lock);
-
-  /*##### Phase 3.2 #####*/
-  cprintf("scheduler: %s\n", SCHED_NAME);
-  /*#####################*/
 }
 
 // Grow current process's memory by n bytes.
@@ -149,6 +152,9 @@ fork(void)
   // Allocate process.
   if((np = allocproc()) == 0)
     return -1;
+
+  np->tickets = proc->tickets;
+  np->stride = proc->stride;
 
   // Copy process state from p.
   if((np->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
@@ -277,15 +283,8 @@ scheduler(void)
     // Enable interrupts on this processor.
     sti();
 
-/*####### Phase 3.2 #######*/
-#if defined(SCHED_LOTTERY)
-    // Phase 4 goes here
+    #if defined(SCHED_RR)
 
-#elif defined(SCHED_STRIDE)
-    // Phase 5 goes here
-
-#else
-/*#########################*/
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
@@ -309,9 +308,13 @@ scheduler(void)
       proc = 0;
     }
     release(&ptable.lock);
-/*####### Phase 3.2 #######*/
-#endif
-/*#########################*/
+
+    #elif defined(SCHED_LOTTERY)
+
+    #elif defined(SCHED_STRIDE)
+
+    #endif
+
   }
 }
 
@@ -362,7 +365,7 @@ myps(void)
  struct proc *p;
  char *state;
  acquire(&ptable.lock);
- cprintf("PID\tState\t\tSize\tName\n");
+ cprintf("PID\tState\tSize\tTickets\tStride\tPass\tName\n");
  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
   if(p->state == UNUSED)
    continue;
@@ -379,7 +382,8 @@ myps(void)
   else
    state = "???";
 
-  cprintf("%d\t%s\t%d\t%s\n", p->pid, state, p->sz, p->name);
+  cprintf("%d\t%s\t%d\t%d\t%d\t%d\t%s\n",
+        p->pid, state, p->sz, p->tickets, p->stride, p->pass, p->name);
 }
  release(&ptable.lock);
  return 0;
@@ -405,10 +409,25 @@ getpinfo(struct pstat *pInfo)
   pInfo->pid[i] = p->pid;
   pInfo->ticks[i] = p->numTicks;
   pInfo->size[i] = p->sz;
+  pInfo->tickets[i] = p->tickets;
+  pInfo->stride[i] = p->stride;
+  pInfo->pass[i] = p->pass;
   i++;
  }
  release(&ptable.lock);
  return 0;
+}
+
+int
+settickets(int n)
+{
+    acquire(&ptable.lock);
+
+    proc->tickets = n;
+    proc->stride = STRIDE_BIG / n;
+
+    release(&ptable.lock);
+    return 0;
 }
 
 // Atomically release lock and sleep on chan.

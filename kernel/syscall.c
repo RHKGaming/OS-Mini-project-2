@@ -10,6 +10,7 @@
 extern int partBcount;
 extern int partCcount;
 extern int sys_thirdpart(void);
+extern int sys_settickets(void);
 
 // User code makes a system call with INT T_SYSCALL.
 // System call number in %eax.
@@ -112,6 +113,7 @@ static int (*syscalls[])(void) = {
 [SYS_ThirdPart]  sys_thirdpart,
 [SYS_myps]  sys_myps,
 [SYS_getpinfo]  sys_getpinfo,
+[SYS_settickets] sys_settickets,
 };
 
 // Called on a syscall trap. Checks that the syscall number (passed via eax)
