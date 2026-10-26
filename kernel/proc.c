@@ -7,6 +7,16 @@
 #include "spinlock.h"
 #include "pstat.h"
 
+/*######### Phase 3.2 #########*/
+#if defined(SCHED_LOTTERY)
+#define SCHED_NAME "LOTTERY"
+#elif defined(SCHED_STRIDE)
+#define SCHED_NAME "STRIDE"
+#else
+#define SCHED_NAME "RR"
+#endif
+/*#############################*/
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -101,6 +111,10 @@ userinit(void)
 
   p->state = RUNNABLE;
   release(&ptable.lock);
+
+  /*##### Phase 3.2 #####*/
+  cprintf("scheduler: %s\n", SCHED_NAME);
+  /*#####################*/
 }
 
 // Grow current process's memory by n bytes.
@@ -263,6 +277,15 @@ scheduler(void)
     // Enable interrupts on this processor.
     sti();
 
+/*####### Phase 3.2 #######*/
+#if defined(SCHED_LOTTERY)
+    // Phase 4 goes here
+
+#elif defined(SCHED_STRIDE)
+    // Phase 5 goes here
+
+#else
+/*#########################*/
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
@@ -286,7 +309,9 @@ scheduler(void)
       proc = 0;
     }
     release(&ptable.lock);
-
+/*####### Phase 3.2 #######*/
+#endif
+/*#########################*/
   }
 }
 
