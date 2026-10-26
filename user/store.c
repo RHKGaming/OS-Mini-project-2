@@ -14,10 +14,12 @@ main(int argc, char *argv[])
   exit();
  }
 
- printf(1, "PID\tSize\tTicks\n");
+ printf(1, "PID\tSize\tTicks\tTickets\tStride\tPass\n");
  for(i = 0; i < NPROC; i++){
   if(st.inuse[i])
-  printf(1, "%d\t%d\t%d\n", st.pid[i], st.size[i], st.ticks[i]);
+  printf(1, "%d\t%d\t%d\t%d\t%d\t%d\n",
+       st.pid[i], st.size[i], st.ticks[i],
+       st.tickets[i], st.stride[i], st.pass[i]);
  }
  exit();
 }
