@@ -283,7 +283,7 @@ void
 scheduler(void)
 {
   struct proc *p;
-it total, winner, counter;
+int total, winner, counter;
   for(;;){
     // Enable interrupts on this processor.
     sti();
