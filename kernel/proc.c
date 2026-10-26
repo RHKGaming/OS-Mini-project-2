@@ -17,17 +17,6 @@
 #endif
 /*#############################*/
 
-// Phase 4.1
-static uint rseed = 2463534242; // any nonzero starting value
-static uint
-rand(void)
-{
-  rseed ^= rseed << 13;
-  rseed ^= rseed >> 17;
-  rseed ^= rseed << 5;
-  return rseed;
-}
-
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -63,11 +52,16 @@ allocproc(void)
       goto found;
   release(&ptable.lock);
   return 0;
-	
+
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   p->numTicks = 0;
+
+  p->tickets = DEFAULT_TICKETS;
+  p->stride = STRIDE_BIG / p->tickets;
+  p->pass = 0;
+
   release(&ptable.lock);
 
   // Allocate kernel stack if possible.
@@ -100,6 +94,8 @@ userinit(void)
 {
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
+
+  cprintf("Scheduler: %s\n", SCHED_NAME);
   
   p = allocproc();
   acquire(&ptable.lock);
@@ -122,10 +118,6 @@ userinit(void)
 
   p->state = RUNNABLE;
   release(&ptable.lock);
-
-  /*##### Phase 3.2 #####*/
-  cprintf("scheduler: %s\n", SCHED_NAME);
-  /*#####################*/
 }
 
 // Grow current process's memory by n bytes.
@@ -160,6 +152,9 @@ fork(void)
   // Allocate process.
   if((np = allocproc()) == 0)
     return -1;
+
+  np->tickets = proc->tickets;
+  np->stride = proc->stride;
 
   // Copy process state from p.
   if((np->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
@@ -283,54 +278,13 @@ void
 scheduler(void)
 {
   struct proc *p;
-int total, winner, counter;
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
-/*####### Phase 3.2 #######*/
-#if defined(SCHED_LOTTERY)
-// TODO 4.1: Calculate the total tickets of all RUNNABLE processes
-    total = 0;
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state == RUNNABLE){
-        total += p->tickets;
-      }
-    }
+    #if defined(SCHED_RR)
 
-    // TODO 4.2: Hold the raffle if there are runnable processes
-    if(total > 0){
-      winner = rand() % total; // Draw a winning number from 0 to total-1
-      counter = 0;
-
-      // Walk the ptable to find the winning process
-      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-        if(p->state != RUNNABLE)
-          continue;
-
-        counter += p->tickets;
-        if(counter > winner){
-          // Found the winner! Run this process using standard Lab 2 lines
-          proc = p;
-          switchuvm(p);
-          p->state = RUNNING;
-          p->numTicks += 1;
-          
-          swtch(&cpu->scheduler, proc->context);
-          switchkvm();
-          
-          proc = 0;
-          break; // Break out of the allocation loop after the slice ends
-        }
-      }
-    }
-    release(&ptable.lock);
-#elif defined(SCHED_STRIDE)
-#elif defined(SCHED_STRIDE)
-    // Phase 5 goes here
-
-#else
-/*#########################*/
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
@@ -354,9 +308,13 @@ int total, winner, counter;
       proc = 0;
     }
     release(&ptable.lock);
-/*####### Phase 3.2 #######*/
-#endif
-/*#########################*/
+
+    #elif defined(SCHED_LOTTERY)
+
+    #elif defined(SCHED_STRIDE)
+
+    #endif
+
   }
 }
 
@@ -407,7 +365,7 @@ myps(void)
  struct proc *p;
  char *state;
  acquire(&ptable.lock);
- cprintf("PID\tState\t\tSize\tName\n");
+ cprintf("PID\tState\tSize\tTickets\tStride\tPass\tName\n");
  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
   if(p->state == UNUSED)
    continue;
@@ -424,7 +382,8 @@ myps(void)
   else
    state = "???";
 
-  cprintf("%d\t%s\t%d\t%s\n", p->pid, state, p->sz, p->name);
+  cprintf("%d\t%s\t%d\t%d\t%d\t%d\t%s\n",
+        p->pid, state, p->sz, p->tickets, p->stride, p->pass, p->name);
 }
  release(&ptable.lock);
  return 0;
@@ -450,10 +409,25 @@ getpinfo(struct pstat *pInfo)
   pInfo->pid[i] = p->pid;
   pInfo->ticks[i] = p->numTicks;
   pInfo->size[i] = p->sz;
+  pInfo->tickets[i] = p->tickets;
+  pInfo->stride[i] = p->stride;
+  pInfo->pass[i] = p->pass;
   i++;
  }
  release(&ptable.lock);
  return 0;
+}
+
+int
+settickets(int n)
+{
+    acquire(&ptable.lock);
+
+    proc->tickets = n;
+    proc->stride = STRIDE_BIG / n;
+
+    release(&ptable.lock);
+    return 0;
 }
 
 // Atomically release lock and sleep on chan.
