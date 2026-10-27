@@ -1,9 +1,9 @@
+
 #include "types.h"
 #include "stat.h"
 #include "user.h"
 
 #define NUM_CHILDREN 3
-#define RUN_TICKS 100
 
 int
 main(int argc, char *argv[])
@@ -43,7 +43,7 @@ main(int argc, char *argv[])
     printf(1, "Scheduler test starting with %d children\n",
            numChildren);
 
-    // Create the child processes.
+    // Create CPU-bound child processes.
     for(i = 0; i < numChildren; i++){
         pid = fork();
 
@@ -53,10 +53,9 @@ main(int argc, char *argv[])
         }
 
         if(pid == 0){
-            int j;
-            volatile int work = 0;
+            volatile uint work = 0;
 
-            // Configure this child's ticket count.
+            // Set this child's ticket count.
             if(settickets(tickets[i]) < 0){
                 printf(2, "schedtest: settickets failed\n");
                 exit();
@@ -65,21 +64,14 @@ main(int argc, char *argv[])
             printf(1, "Child PID %d running with %d tickets\n",
                    getpid(), tickets[i]);
 
-            // Consume CPU time so the scheduler can schedule this child.
-            for(j = 0; j < RUN_TICKS * 100000; j++){
-                work += j;
+            // Run indefinitely so store can measure CPU ticks.
+            for(;;){
+                work++;
             }
-
-            exit();
         }
     }
 
-    // Wait for every child to finish.
-    for(i = 0; i < numChildren; i++){
-        wait();
-    }
-
-    printf(1, "Scheduler test finished\n");
+    // The parent exits, leaving the children running.
+    printf(1, "Scheduler test started; run store twice to measure ticks\n");
     exit();
 }
-
