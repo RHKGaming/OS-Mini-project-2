@@ -324,6 +324,8 @@ scheduler(void)
     release(&ptable.lock);
 
     #elif defined(SCHED_LOTTERY)
+      acquire(&ptable.lock);
+
 // TODO 4.1: Calculate the total tickets of all RUNNABLE processes
 	int total, winner, counter;
     total = 0;
