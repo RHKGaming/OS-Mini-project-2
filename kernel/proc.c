@@ -17,16 +17,7 @@
 #endif
 /*#############################*/
 
-// Phase 4.1
-static uint rseed = 2463534242; // any nonzero starting value
-static uint
-rand(void)
-{
-  rseed ^= rseed << 13;
-  rseed ^= rseed >> 17;
-  rseed ^= rseed << 5;
-  return rseed;
-}
+
 
 struct {
   struct spinlock lock;
@@ -289,7 +280,6 @@ void
 scheduler(void)
 {
 	struct proc *p;
-	int total, winner, counter;
 
   for(;;){
     // Enable interrupts on this processor.
@@ -322,7 +312,18 @@ scheduler(void)
     release(&ptable.lock);
 
     #elif defined(SCHED_LOTTERY)
+	  // Phase 4.1
+static uint rseed = 2463534242; // any nonzero starting value
+static uint
+rand(void)
+{
+  rseed ^= rseed << 13;
+  rseed ^= rseed >> 17;
+  rseed ^= rseed << 5;
+  return rseed;
+}
 // TODO 4.1: Calculate the total tickets of all RUNNABLE processes
+	int total, winner, counter;
     total = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state == RUNNABLE){
