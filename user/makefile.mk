@@ -23,7 +23,8 @@ USER_PROGS := \
 	testthirdpart\
 	pstester\
 	childrentester\
-	store
+	store\
+	schedtest
 
 USER_PROGS := $(addprefix user/, $(USER_PROGS))
 
