@@ -154,6 +154,8 @@ growproc(int n)
   return 0;
 }
 
+static int minpass(void);
+
 // Create a new process copying p as the parent.
 // Sets up stack to return as if from system call.
 // Caller must set state of returned proc to RUNNABLE.
@@ -190,7 +192,12 @@ fork(void)
   np->cwd = idup(proc->cwd);
  
   pid = np->pid;
+
+  acquire(&ptable.lock);
+  np->pass = minpass();
   np->state = RUNNABLE;
+  release(&ptable.lock);
+
   safestrcpy(np->name, proc->name, sizeof(proc->name));
   return pid;
 }
@@ -281,6 +288,28 @@ wait(void)
   }
 }
 
+static int lastpass = 0;
+
+static int
+minpass(void)
+{
+  struct proc *p;
+  int min = 0;
+  int found = 0;
+
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state != RUNNABLE)
+      continue;
+
+    if(!found || p->pass < min){
+      min = p->pass;
+      found = 1;
+    }
+  }
+
+  return found ? min : lastpass;
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -292,6 +321,7 @@ void
 scheduler(void)
 {
 	struct proc *p;
+  struct proc *best;
 
   for(;;){
     // Enable interrupts on this processor.
@@ -363,7 +393,36 @@ scheduler(void)
     }
     release(&ptable.lock);
 #elif defined(SCHED_STRIDE)
-    #endif
+    acquire(&ptable.lock);
+
+    best = 0;
+
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE)
+        continue;
+
+      if(best == 0 || p->pass < best->pass)
+        best = p;
+    }
+
+    if(best){
+      p = best;
+      p->pass += p->stride;
+      lastpass = p->pass;
+
+      proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
+      p->numTicks += 1;
+
+      swtch(&cpu->scheduler, proc->context);
+      switchkvm();
+
+      proc = 0;
+    }
+
+    release(&ptable.lock);
+#endif
 
   }
 }
@@ -523,10 +582,18 @@ static void
 wakeup1(void *chan)
 {
   struct proc *p;
+  int min;
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == SLEEPING && p->chan == chan){
+      min = minpass();
+
+      if(p->pass < min)
+        p->pass = min;
+
       p->state = RUNNABLE;
+    }
+  }
 }
 
 // Wake up all processes sleeping on chan.
