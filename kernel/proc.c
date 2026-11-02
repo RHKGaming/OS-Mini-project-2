@@ -320,8 +320,11 @@ minpass(void)
 void
 scheduler(void)
 {
-	struct proc *p;
+  struct proc *p;
+
+  #if defined(SCHED_STRIDE)
   struct proc *best;
+  #endif
 
   for(;;){
     // Enable interrupts on this processor.
