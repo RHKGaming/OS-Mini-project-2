@@ -39,8 +39,9 @@ main(int argc, char *argv[])
         }
     }
 
+    printf(1, "Scheduler test parent PID: %d\n", getpid());
     printf(1, "Scheduler test starting with %d children\n",
-           numChildren);
+        numChildren);
 
     // Create CPU-bound child processes.
     for(i = 0; i < numChildren; i++){

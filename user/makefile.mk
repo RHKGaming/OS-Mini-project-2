@@ -24,7 +24,9 @@ USER_PROGS := \
 	pstester\
 	childrentester\
 	store\
-	schedtest
+    schedtest\
+    monitor\
+    gamer
 
 USER_PROGS := $(addprefix user/, $(USER_PROGS))
 
